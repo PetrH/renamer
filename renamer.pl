@@ -23,10 +23,11 @@ use 5.010;
 use strict;
 use warnings;
 use File::Copy;
+use List::MoreUtils qw(any);
 
 if ( !chdir $ARGV[0] ) {
-  print "Change to " . $ARGV[0] . " has failed!";
-  exit;
+    print "Change to " . $ARGV[0] . " has failed!";
+    exit;
 }
 
 my @dirs = split "/", $ARGV[0];
@@ -44,48 +45,51 @@ my $names;
 
 if ( -e $file ) {
 
-  open( my $fh, '<', $file ) or die "Could not open '$file' $!\n";
+    open( my $fh, '<', $file ) or die "Could not open '$file' $!\n";
 
-  while (<$fh>) {
-    chomp $_;
-    my @fields = split ";";
-    $names->{ $fields[0] } = $fields[1];
+    while (<$fh>) {
+        chomp $_;
+        my @fields = split ";";
+        $names->{ $fields[0] } = $fields[1];
 
-  }
+    }
 
-  close $fh;
+    close $fh;
 }
 
-# TODO Match more file types!!!!
+my @file_types = ( "avi", "mp4", "srt", "mkv" );
 
-my @files     = <*.mkv>;
-my $extension = ".mkv";
+my @files = <*>;
 
 for (@files) {
-  ( my $episode = $_ ) =~ s/.*(\d)x(\d\d).*/$1x$2/g;
-  my $session_number = $1;
-  my $new_name;
 
-  if ( defined $session_number ) {
+    # Test file extension
+    my $extension = ( split '\.' )[-1];
+    next unless any { /$extension/ } @file_types;
+
+    # TODO Match more patterns
+    ( my $episode = $_ ) =~ s/.*(\d)x(\d\d).*/$1x$2/g;
+    my $session_number = $1;
+    my $new_name;
+
+    # Test if name contains episode number
+    next unless defined $session_number;
+
     $new_name = "$show_name - $episode";
-  }
-  else {
-    next;
-  }
 
-  if ( defined $names && defined $names->{$episode} ) {
-    $new_name .= " - " . $names->{$episode};
-  }
+    if ( defined $names && defined $names->{$episode} ) {
+        $new_name .= " - " . $names->{$episode};
+    }
 
-  $new_name .= $extension;
-  say $new_name;
+    $new_name .= ".$extension";
+    say $new_name;
 
-  # Rename and move to correct direcotry
-  if ( !-d "./Session " . $session_number ) {
-    my $created = mkdir "./Session " . $session_number;
-    move $_, "./Session " . $session_number . "/" . $new_name if $created;
-  }
-  else {
-    move $_, "./Session " . $session_number . "/" . $new_name;
-  }
+    # Rename and move to correct direcotry
+    if ( !-d "./Session " . $session_number ) {
+        my $created = mkdir "./Session " . $session_number;
+        move $_, "./Session " . $session_number . "/" . $new_name if $created;
+    }
+    else {
+        move $_, "./Session " . $session_number . "/" . $new_name;
+    }
 }
